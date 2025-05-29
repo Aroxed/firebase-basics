@@ -1,0 +1,21 @@
+{
+  "name": "firebase-login-app",
+  "version": "1.0.0",
+  "description": "A simple web application with Firebase authentication, database, and notifications",
+  "main": "index.html",
+  "scripts": {
+    "start": "http-server -p 8080 -c-1",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "firebase",
+    "authentication",
+    "realtime-database",
+    "notifications"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+} 
