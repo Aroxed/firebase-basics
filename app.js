@@ -12,6 +12,7 @@ const notificationsContainer = document.getElementById('notifications');
 const showRegisterLink = document.getElementById('show-register');
 const showLoginLink = document.getElementById('show-login');
 const loginEventsContainer = document.getElementById('login-events');
+const googleLoginBtn = document.getElementById('google-login');
 
 // Format timestamp to readable date
 function formatDate(timestamp) {
@@ -204,4 +205,28 @@ database.ref('loginEvents').on('child_added', (snapshot) => {
     notification.className = 'notification';
     notification.textContent = `New login from ${loginEvent.email}`;
     notificationsContainer.prepend(notification);
-}); 
+});
+
+// Google login handler
+if (googleLoginBtn) {
+    googleLoginBtn.addEventListener('click', async () => {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        try {
+            const result = await auth.signInWithPopup(provider);
+            const user = result.user;
+            // Save login event to database
+            const loginEvent = {
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                email: user.email
+            };
+            await database.ref('loginEvents').push(loginEvent);
+            // Request notification permission after successful login
+            await requestNotificationPermission();
+            showUserSection(user);
+        } catch (error) {
+            errorMessage.textContent = error.message;
+        }
+    });
+}
+
+f
