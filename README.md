@@ -7,7 +7,6 @@ A simple web application that demonstrates Firebase Authentication and Realtime 
 - User authentication with email/password and Google
 - Login event tracking in Firebase Realtime Database
 - Real-time updates for login events
-- Optional Firebase Cloud Messaging token request
 - Clean and modern UI
 
 ## Setup
@@ -16,7 +15,6 @@ A simple web application that demonstrates Firebase Authentication and Realtime 
 2. Enable the following services in your Firebase project:
    - Authentication (Email/Password and Google)
    - Realtime Database
-   - Cloud Messaging, only if you want to experiment with notification tokens
 3. Get your Firebase web app configuration from Project Settings
 4. Put that configuration in `firebase-config.js`, including `databaseURL`
 5. Set up Firebase Realtime Database rules to allow authenticated users to read/write. These are Realtime Database rules, not Firestore rules:
@@ -50,8 +48,6 @@ Paste those rules in the Realtime Database Rules tab and publish them.
 
 For Google sign-in, use `localhost` or add your exact local host, such as `127.0.0.1`, in Firebase Console under Authentication > Settings > Authorized domains.
 
-Cloud Messaging token requests are optional. Full background push notifications require adding a Firebase messaging service worker, which this app does not currently include.
-
 ## Security Notes
 
 - Firebase web config is public-facing by design, but keep Realtime Database rules restrictive
@@ -60,7 +56,4 @@ Cloud Messaging token requests are optional. Full background push notifications 
 
 ## Browser Support
 
-The core app requires a browser that supports modern JavaScript. Optional Firebase Cloud Messaging experiments also require:
-
-- Service Workers
-- Web Push API 
+The app requires a browser that supports modern JavaScript.
