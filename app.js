@@ -11,7 +11,18 @@ const registerError = document.getElementById('register-error');
 const notificationsContainer = document.getElementById('notifications');
 const showRegisterLink = document.getElementById('show-register');
 const showLoginLink = document.getElementById('show-login');
+const googleLoginBtn = document.getElementById('google-login-btn');
+const googleRegisterBtn = document.getElementById('google-register-btn');
 const loginEventsContainer = document.getElementById('login-events');
+
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+googleProvider.setCustomParameters({
+    prompt: 'select_account'
+});
+
+let loginEventsQuery = null;
+let loginEventsHandler = null;
+let loginEventsErrorHandler = null;
 
 // Format timestamp to readable date
 function formatDate(timestamp) {
@@ -19,16 +30,117 @@ function formatDate(timestamp) {
     return date.toLocaleString();
 }
 
+function displayLoginHistoryMessage(message, className = 'login-event') {
+    loginEventsContainer.innerHTML = '';
+    const messageElement = document.createElement('div');
+    messageElement.className = className;
+    messageElement.textContent = message;
+    loginEventsContainer.appendChild(messageElement);
+}
+
 // Display login event
 function displayLoginEvent(loginEvent) {
     console.log('Displaying login event:', loginEvent);
     const eventElement = document.createElement('div');
     eventElement.className = 'login-event';
-    eventElement.innerHTML = `
-        <div>${loginEvent.email}</div>
-        <div class="time">${formatDate(loginEvent.timestamp)}</div>
-    `;
-    loginEventsContainer.prepend(eventElement);
+
+    const emailElement = document.createElement('div');
+    emailElement.textContent = loginEvent.email || 'Unknown user';
+
+    const timeElement = document.createElement('div');
+    timeElement.className = 'time';
+    timeElement.textContent = formatDate(loginEvent.timestamp);
+
+    if (loginEvent.provider) {
+        const providerElement = document.createElement('div');
+        providerElement.className = 'time';
+        providerElement.textContent = `Provider: ${loginEvent.provider}`;
+        eventElement.append(emailElement, timeElement, providerElement);
+    } else {
+        eventElement.append(emailElement, timeElement);
+    }
+
+    loginEventsContainer.appendChild(eventElement);
+}
+
+async function saveUserProfile(user, options = {}) {
+    const userRef = database.ref(`users/${user.uid}`);
+    const userProfile = {
+        email: user.email,
+        displayName: user.displayName || null,
+        photoURL: user.photoURL || null,
+        lastLoginAt: firebase.database.ServerValue.TIMESTAMP
+    };
+
+    if (options.includeCreatedAt) {
+        userProfile.createdAt = firebase.database.ServerValue.TIMESTAMP;
+    }
+
+    await userRef.update(userProfile);
+}
+
+async function saveUserProfileIfAllowed(user, options) {
+    try {
+        await saveUserProfile(user, options);
+    } catch (error) {
+        console.warn('Unable to save user profile:', error);
+    }
+}
+
+async function saveLoginEvent(user, provider) {
+    const loginEvent = {
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        email: user.email,
+        provider
+    };
+    console.log('Saving login event:', loginEvent);
+    const loginEventRef = await database.ref('loginEvents').push(loginEvent);
+    console.log('Login event saved with key:', loginEventRef.key);
+}
+
+function showAuthError(error, target = errorMessage) {
+    target.textContent = error.message;
+}
+
+function showAppError(error) {
+    displayLoginHistoryMessage(error.message, 'login-event error');
+    console.error(error);
+}
+
+function renderLoginEvents(snapshot) {
+    console.log('Received login events snapshot:', snapshot.val());
+    loginEventsContainer.innerHTML = '';
+
+    if (!snapshot.exists()) {
+        displayLoginHistoryMessage('No login events yet.');
+        return;
+    }
+
+    const events = [];
+    snapshot.forEach((childSnapshot) => {
+        events.push(childSnapshot.val());
+    });
+    console.log('Processed events:', events);
+
+    events.reverse().forEach(displayLoginEvent);
+}
+
+function subscribeToLoginHistory() {
+    if (loginEventsQuery) {
+        loginEventsQuery.off('value', loginEventsHandler);
+    }
+
+    loginEventsContainer.innerHTML = '';
+    loginEventsQuery = database.ref('loginEvents')
+        .orderByChild('timestamp')
+        .limitToLast(10);
+    loginEventsHandler = renderLoginEvents;
+    loginEventsErrorHandler = (error) => {
+        showAppError(new Error(`Unable to load login history: ${error.message}`));
+    };
+
+    console.log('Loading login events...');
+    loginEventsQuery.on('value', loginEventsHandler, loginEventsErrorHandler);
 }
 
 // Toggle between login and register forms
@@ -60,7 +172,11 @@ async function requestNotificationPermission() {
             // Save the token to the database
             const user = auth.currentUser;
             if (user) {
-                database.ref(`users/${user.uid}/fcmToken`).set(token);
+                try {
+                    await database.ref(`users/${user.uid}/fcmToken`).set(token);
+                } catch (error) {
+                    console.warn('Unable to save notification token:', error);
+                }
             }
         }
     } catch (error) {
@@ -84,18 +200,16 @@ registerForm.addEventListener('submit', async (e) => {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
-        // Save initial user data to database
-        await database.ref(`users/${user.uid}`).set({
-            email: user.email,
-            createdAt: firebase.database.ServerValue.TIMESTAMP
-        });
+        await saveUserProfileIfAllowed(user, { includeCreatedAt: true });
+        await saveLoginEvent(user, 'password');
         
         // Request notification permission after successful registration
         await requestNotificationPermission();
         
         showUserSection(user);
     } catch (error) {
-        registerError.textContent = error.message;
+        showAuthError(error, registerError);
+        showAppError(error);
     }
 });
 
@@ -109,22 +223,45 @@ loginForm.addEventListener('submit', async (e) => {
         const userCredential = await auth.signInWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
-        // Save login event to database
-        const loginEvent = {
-            timestamp: firebase.database.ServerValue.TIMESTAMP,
-            email: user.email
-        };
-        console.log('Saving login event:', loginEvent);
-        const loginEventRef = await database.ref('loginEvents').push(loginEvent);
-        console.log('Login event saved with key:', loginEventRef.key);
+        await saveUserProfileIfAllowed(user);
+        await saveLoginEvent(user, 'password');
         
         // Request notification permission after successful login
         await requestNotificationPermission();
         
         showUserSection(user);
     } catch (error) {
-        errorMessage.textContent = error.message;
+        showAuthError(error);
+        showAppError(error);
     }
+});
+
+async function signInWithGoogle(targetError) {
+    targetError.textContent = '';
+
+    try {
+        const userCredential = await auth.signInWithPopup(googleProvider);
+        const user = userCredential.user;
+
+        await saveUserProfileIfAllowed(user, {
+            includeCreatedAt: userCredential.additionalUserInfo?.isNewUser
+        });
+        await saveLoginEvent(user, 'google.com');
+        await requestNotificationPermission();
+
+        showUserSection(user);
+    } catch (error) {
+        showAuthError(error, targetError);
+        showAppError(error);
+    }
+}
+
+googleLoginBtn.addEventListener('click', () => {
+    signInWithGoogle(errorMessage);
+});
+
+googleRegisterBtn.addEventListener('click', () => {
+    signInWithGoogle(registerError);
 });
 
 // Handle logout
@@ -133,7 +270,7 @@ logoutBtn.addEventListener('click', async () => {
         await auth.signOut();
         showLoginSection();
     } catch (error) {
-        errorMessage.textContent = error.message;
+        showAuthError(error);
     }
 });
 
@@ -144,30 +281,18 @@ function showUserSection(user) {
     userSection.classList.remove('hidden');
     userEmail.textContent = user.email;
     
-    // Clear previous login events
-    loginEventsContainer.innerHTML = '';
-    
-    // Load and display login events
-    console.log('Loading login events...');
-    database.ref('loginEvents')
-        .orderByChild('timestamp')
-        .limitToLast(10)
-        .on('value', (snapshot) => {
-            console.log('Received login events snapshot:', snapshot.val());
-            const events = [];
-            snapshot.forEach((childSnapshot) => {
-                events.push(childSnapshot.val());
-            });
-            console.log('Processed events:', events);
-            // Display events in reverse chronological order
-            events.reverse().forEach(displayLoginEvent);
-        }, (error) => {
-            console.error('Error loading login events:', error);
-        });
+    subscribeToLoginHistory();
 }
 
 // Show login section
 function showLoginSection() {
+    if (loginEventsQuery) {
+        loginEventsQuery.off('value', loginEventsHandler);
+        loginEventsQuery = null;
+        loginEventsHandler = null;
+        loginEventsErrorHandler = null;
+    }
+
     userSection.classList.add('hidden');
     registerSection.classList.add('hidden');
     loginSection.classList.remove('hidden');
@@ -195,13 +320,3 @@ if (messaging) {
         notificationsContainer.prepend(notification);
     });
 }
-
-// Listen for database changes
-database.ref('loginEvents').on('child_added', (snapshot) => {
-    const loginEvent = snapshot.val();
-    console.log('New login event received:', loginEvent);
-    const notification = document.createElement('div');
-    notification.className = 'notification';
-    notification.textContent = `New login from ${loginEvent.email}`;
-    notificationsContainer.prepend(notification);
-}); 

@@ -1,12 +1,12 @@
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDIrugtlQwtwyoKGYu1eRIMsppVSJSnGkM",
-  authDomain: "basics-9dd7d.firebaseapp.com",
-  projectId: "basics-9dd7d",
-  storageBucket: "basics-9dd7d.firebasestorage.app",
-  messagingSenderId: "556132786878",
-  appId: "1:556132786878:web:bcede11689aa0deb7534ef",
-  databaseURL: "https://basics-9dd7d-default-rtdb.europe-west1.firebasedatabase.app"
+  apiKey: "AIzaSyDACWP35vMDgVVzSq9hOy5o6mNckrFONYY",
+  authDomain: "fir-2026-79368.firebaseapp.com",
+  projectId: "fir-2026-79368",
+  storageBucket: "fir-2026-79368.firebasestorage.app",
+  messagingSenderId: "875127856041",
+  appId: "1:875127856041:web:53c1984b797aaebc2942b8",
+  databaseURL: "https://fir-2026-79368-default-rtdb.europe-west1.firebasedatabase.app"
 };
 
 // Initialize Firebase

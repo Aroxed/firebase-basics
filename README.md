@@ -14,19 +14,20 @@ A simple web application that demonstrates Firebase Authentication, Realtime Dat
 
 1. Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
 2. Enable the following services in your Firebase project:
-   - Authentication (Email/Password)
+   - Authentication (Email/Password and Google)
    - Realtime Database
    - Cloud Messaging
 3. Get your Firebase configuration from Project Settings
 4. Replace the placeholder values in `firebase-config.js` with your actual Firebase configuration
-5. Set up Firebase Realtime Database rules to allow authenticated users to read/write:
+5. Set up Firebase Realtime Database rules to allow authenticated users to read/write. These are Realtime Database rules, not Firestore rules:
 
 ```json
 {
   "rules": {
     "loginEvents": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      ".write": "auth != null",
+      ".indexOn": ["timestamp"]
     },
     "users": {
       "$uid": {
@@ -38,13 +39,17 @@ A simple web application that demonstrates Firebase Authentication, Realtime Dat
 }
 ```
 
+Paste those rules in the Realtime Database Rules tab and publish them.
+
 ## Running the App
 
-1. Host the files on a web server (local or production)
-2. Open the application in a web browser
+1. Run `npm start`
+2. Open `http://localhost:8090` in a web browser
 3. Create a user account through Firebase Authentication
 4. Log in with your credentials
 5. Allow notifications when prompted
+
+For Google sign-in, use `localhost` or add your exact local host, such as `127.0.0.1`, in Firebase Console under Authentication > Settings > Authorized domains.
 
 ## Security Notes
 
